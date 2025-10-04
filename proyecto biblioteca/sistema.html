@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema Biblioteca Escolar (Demo)</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--accent:#2463eb;--muted:#6b7280}
+    *{box-sizing:border-box;font-family:Inter, system-ui, Arial, sans-serif}
+    body{margin:0;background:var(--bg);color:#111}
+    header{background:linear-gradient(90deg,#1e40af 0%, #2563eb 100%);color:white;padding:18px}
+    .container{max-width:1100px;margin:20px auto;padding:16px}
+    h1{margin:0;font-size:20px}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+    label{display:block;font-size:13px;margin-top:8px;color:var(--muted)}
+    input[type=text], input[type=number], select, input[type=date]{width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid #e6e9ef}
+    button{padding:8px 10px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px;padding:6px 8px}
+    .row{display:flex;gap:8px;align-items:center}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th, td{padding:8px;text-align:left;border-bottom:1px solid #f1f5f9;font-size:14px}
+    .badge{display:inline-block;padding:6px 8px;border-radius:999px;background:#eef2ff;color:#1e3a8a;font-weight:600;font-size:13px}
+    .actions button{margin-right:6px}
+    .searchRow{display:flex;gap:8px;align-items:center}
+    .flex-between{display:flex;justify-content:space-between;align-items:center}
+    .center{text-align:center}
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.4)}
+    .modal{background:var(--card);padding:18px;border-radius:10px;min-width:320px;max-width:460px}
+    .hidden{display:none}
+    footer{margin-top:12px;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    .danger{background:#ef4444}
+    @media(max-width:900px){.grid{grid-template-columns:1fr} .container{padding:8px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Biblioteca Escolar — Sistema Demo</h1>
+      <div class="muted">Guarda libros, gestiona préstamos por alumno (credencial) y organiza por categorías.</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <!-- Left column: forms -->
+      <div class="card">
+        <div class="flex-between">
+          <div>
+            <strong>Agregar / Editar libro</strong>
+            <div class="muted">Rellena los datos y presiona "Guardar libro"</div>
+          </div>
+          <div class="badge" id="statsTotal">0 libros</div>
+        </div>
+
+        <form id="bookForm">
+          <input type="hidden" id="editingId" value="" />
+          <label for="title">Título *</label>
+          <input id="title" type="text" required />
+
+          <label for="author">Autor</label>
+          <input id="author" type="text" />
+
+          <label for="categorySelect">Categoría *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="categorySelect"></select>
+            <input id="newCategory" type="text" placeholder="+ nueva categoría" />
+            <button id="addCategoryBtn" type="button" class="small">Añadir</button>
+          </div>
+
+          <label for="isbn">Referencia / ISBN</label>
+          <input id="isbn" type="text" />
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button id="saveBookBtn" type="submit">Guardar libro</button>
+            <button id="cancelEditBtn" type="button" class="small hidden">Cancelar edición</button>
+          </div>
+        </form>
+
+        <hr style="margin:12px 0" />
+
+        <strong>Importar / Exportar</strong>
+        <div class="muted">Guarda una copia de seguridad o carga datos desde JSON.</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="exportBtn" class="small" type="button">Exportar JSON</button>
+          <input id="importFile" type="file" accept="application/json" />
+        </div>
+
+        <hr style="margin:12px 0" />
+
+        <strong>Controles rápidos</strong>
+        <div style="margin-top:8px" class="controls">
+          <button id="clearBtn" class="small danger" type="button">Borrar todo (¡cuidado!)</button>
+          <button id="seedBtn" class="small" type="button">Agregar ejemplo</button>
+        </div>
+
+        <footer>
+          <div>Nota: esta demo guarda los datos en <strong>tu navegador</strong> (localStorage). Para usarlo en otro equipo exporta el JSON.</div>
+        </footer>
+      </div>
+
+      <!-- Right column: list & filters -->
+      <div>
+        <div class="card">
+          <div class="flex-between">
+            <div>
+              <strong>Libros</strong>
+              <div class="muted">Busca por título o filtra por categoría</div>
+            </div>
+            <div class="row">
+              <div class="muted" style="margin-right:10px">Disponibles: <span id="statsAvailable">0</span></div>
+              <div class="muted">Prestados: <span id="statsBorrowed">0</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="searchRow">
+            <input id="searchInput" type="text" placeholder="Buscar título, autor o ISBN..." />
+            <select id="filterCategory"></select>
+            <button id="clearFilter" class="small" type="button">Limpiar</button>
+          </div>
+
+          <table id="booksTable" aria-live="polite">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Título</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th class="center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="booksTbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Borrow modal -->
+        <div id="borrowModalBackdrop" class="modal-backdrop">
+          <div class="modal">
+            <h3 id="modalTitle">Prestar libro</h3>
+            <form id="borrowForm">
+              <input type="hidden" id="borrowBookId" />
+              <label for="borrowerName">Nombre del alumno *</label>
+              <input id="borrowerName" type="text" required />
+
+              <label for="studentId">No. credencial *</label>
+              <input id="studentId" type="text" required />
+
+              <label for="dueDate">Fecha de devolución (opcional)</label>
+              <input id="dueDate" type="date" />
+
+              <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+                <button type="submit">Confirmar préstamo</button>
+                <button id="cancelBorrowBtn" type="button" class="small">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- STORAGE KEY and default data ---
+    const STORAGE_KEY = 'escuelaBiblioteca_v1';
+
+    function defaultData() {
+      return {
+        nextId: 1,
+        categories: ['General','Ciencia','Matemáticas','Ficción'],
+        books: []
+      };
+    }
+
+    let data = loadData();
+
+    // --- DOM references ---
+    const categorySelect = document.getElementById('categorySelect');
+    const newCategoryInput = document.getElementById('newCategory');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const bookForm = document.getElementById('bookForm');
+    const editingIdInput = document.getElementById('editingId');
+    const titleInput = document.getElementById('title');
+    const authorInput = document.getElementById('author');
+    const isbnInput = document.getElementById('isbn');
+    const saveBookBtn = document.getElementById('saveBookBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+    const booksTbody = document.getElementById('booksTbody');
+    const filterCategory = document.getElementById('filterCategory');
+    const searchInput = document.getElementById('searchInput');
+
+    const borrowModal = document.getElementById('borrowModalBackdrop');
+    const borrowForm = document.getElementById('borrowForm');
+    const borrowBookId = document.getElementById('borrowBookId');
+    const borrowerName = document.getElementById('borrowerName');
+    const studentId = document.getElementById('studentId');
+    const dueDate = document.getElementById('dueDate');
+    const cancelBorrowBtn = document.getElementById('cancelBorrowBtn');
+
+    const exportBtn = document.getElementById('exportBtn');
+    const importFile = document.getElementById('importFile');
+    const clearBtn = document.getElementById('clearBtn');
+    const seedBtn = document.getElementById('seedBtn');
+    const statsTotal = document.getElementById('statsTotal');
+    const statsAvailable = document.getElementById('statsAvailable');
+    const statsBorrowed = document.getElementById('statsBorrowed');
+    const clearFilterBtn = document.getElementById('clearFilter');
+
+    // --- Load & Save ---
+    function loadData(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return defaultData();
+        return JSON.parse(raw);
+      }catch(e){
+        console.error('Error leyendo storage, restaurando por defecto', e);
+        return defaultData();
+      }
+    }
+
+    function saveData(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      renderAll();
+    }
+
+    // --- Rendering ---
+    function renderCategories(){
+      // categorySelect (for add/edit)
+      categorySelect.innerHTML = '';
+      data.categories.forEach(cat => {
+        const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat; categorySelect.appendChild(opt);
+      });
+      // filterCategory plus 'Todos'
+      filterCategory.innerHTML = '';
+      const allOpt = document.createElement('option'); allOpt.value = ''; allOpt.textContent = 'Todas'; filterCategory.appendChild(allOpt);
+      data.categories.forEach(cat => {
+        const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat; filterCategory.appendChild(opt);
+      });
+    }
+
+    function renderBooks(){
+      const q = searchInput.value.trim().toLowerCase();
+      const catFilter = filterCategory.value;
+      booksTbody.innerHTML = '';
+
+      let total = 0, borrowed = 0;
+
+      data.books.forEach(book => {
+        // filtering
+        if(catFilter && book.category !== catFilter) return;
+        if(q){
+          const hay = (book.title + ' ' + (book.author||'') + ' ' + (book.isbn||'')).toLowerCase();
+          if(!hay.includes(q)) return;
+        }
+        total++;
+        if(book.status === 'borrowed') borrowed++;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${book.id}</td>
+          <td>
+            <strong>${escapeHtml(book.title)}</strong><br />
+            <span class="muted">${escapeHtml(book.author||'')}</span>
+          </td>
+          <td>${escapeHtml(book.category)}</td>
+          <td>${book.status === 'available' ? '<span class="badge">Disponible</span>' : '<span class="badge">Prestado</span>'}</td>
+          <td class="center actions">
+            ${book.status === 'available' ? `<button data-action="borrow" data-id="${book.id}" class="small">Prestar</button>` : `<button data-action="return" data-id="${book.id}" class="small">Devolver</button>`}
+            <button data-action="edit" data-id="${book.id}" class="small">Editar</button>
+            <button data-action="delete" data-id="${book.id}" class="small danger">Borrar</button>
+          </td>
+        `;
+
+        // show borrower info for borrowed items
+        if(book.status === 'borrowed' && book.borrower){
+          const infoRow = document.createElement('tr');
+          infoRow.innerHTML = `<td></td><td colspan="4" class="muted">Prestado a: <strong>${escapeHtml(book.borrower.name)}</strong> (Cred: ${escapeHtml(book.borrower.studentId)}) — Fecha: ${escapeHtml(book.borrower.dateBorrowed)} ${book.borrower.dueDate ? ' — Dev. ' + escapeHtml(book.borrower.dueDate) : ''}</td>`;
+          booksTbody.appendChild(tr);
+          booksTbody.appendChild(infoRow);
+        } else {
+          booksTbody.appendChild(tr);
+        }
+      });
+
+      // stats
+      const totalBooks = data.books.length;
+      statsTotal.textContent = `${totalBooks} libro(s)`;
+      statsBorrowed.textContent = borrowed;
+      statsAvailable.textContent = totalBooks - borrowed;
+
+      // If no results
+      if(booksTbody.children.length === 0){
+        const tr = document.createElement('tr'); tr.innerHTML = '<td colspan="5" class="muted center">No hay libros que coincidan.</td>'; booksTbody.appendChild(tr);
+      }
+    }
+
+    function renderAll(){
+      renderCategories();
+      renderBooks();
+    }
+
+    // --- Helpers ---
+    function escapeHtml(str){ if(!str && str !== 0) return ''; return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    function findBookById(id){ return data.books.find(b => b.id === Number(id)); }
+
+    // --- Form actions ---
+    bookForm.addEventListener('submit', (e) =>{
+      e.preventDefault();
+      const editingId = editingIdInput.value;
+      const title = titleInput.value.trim();
+      const author = authorInput.value.trim();
+      const category = categorySelect.value;
+      const isbn = isbnInput.value.trim();
+      if(!title || !category){ alert('Título y categoría son obligatorios.'); return; }
+
+      if(editingId){
+        // update
+        const book = findBookById(editingId);
+        if(!book) return alert('Libro no encontrado.');
+        book.title = title; book.author = author; book.category = category; book.isbn = isbn;
+        editingIdInput.value = '';
+        cancelEditBtn.classList.add('hidden');
+      } else {
+        const book = { id: data.nextId++, title, author, category, isbn, status: 'available', borrower: null };
+        data.books.push(book);
+      }
+      saveData();
+      bookForm.reset();
+    });
+
+    addCategoryBtn.addEventListener('click', () =>{
+      const txt = newCategoryInput.value.trim();
+      if(!txt) return;
+      if(!data.categories.includes(txt)) data.categories.push(txt);
+      newCategoryInput.value = '';
+      saveData();
+    });
+
+    cancelEditBtn.addEventListener('click', () =>{
+      editingIdInput.value = '';
+      bookForm.reset();
+      cancelEditBtn.classList.add('hidden');
+    });
+
+    // delegated actions for table
+    booksTbody.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      const action = btn.dataset.action; const id = btn.dataset.id;
+      if(action === 'borrow') openBorrowModal(id);
+      if(action === 'return') doReturn(id);
+      if(action === 'edit') doEdit(id);
+      if(action === 'delete') doDelete(id);
+    });
+
+    // borrow modal
+    function openBorrowModal(id){
+      const book = findBookById(id); if(!book) return alert('Libro no encontrado');
+      borrowBookId.value = id;
+      document.getElementById('modalTitle').textContent = `Prestar: ${book.title}`;
+      borrowerName.value = '';
+      studentId.value = '';
+      dueDate.value = '';
+      borrowModal.style.display = 'flex';
+    }
+
+    cancelBorrowBtn.addEventListener('click', ()=>{ borrowModal.style.display = 'none'; });
+
+    borrowForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const id = borrowBookId.value; const book = findBookById(id); if(!book) return alert('Libro no encontrado');
+      const name = borrowerName.value.trim(); const sid = studentId.value.trim(); const dd = dueDate.value || null;
+      if(!name || !sid) return alert('Nombre del alumno y número de credencial son obligatorios.');
+      book.status = 'borrowed';
+      const now = new Date();
+      book.borrower = { name, studentId: sid, dateBorrowed: now.toISOString().slice(0,10), dueDate: dd };
+      saveData();
+      borrowModal.style.display = 'none';
+    });
+
+    function doReturn(id){
+      const book = findBookById(id); if(!book) return;
+      if(!confirm('Confirmar devolución de este libro?')) return;
+      book.status = 'available'; book.borrower = null; saveData();
+    }
+
+    function doEdit(id){
+      const book = findBookById(id); if(!book) return;
+      editingIdInput.value = book.id;
+      titleInput.value = book.title;
+      authorInput.value = book.author || '';
+      isbnInput.value = book.isbn || '';
+      // ensure category exists
+      if(!data.categories.includes(book.category)) data.categories.push(book.category);
+      renderCategories();
+      categorySelect.value = book.category;
+      cancelEditBtn.classList.remove('hidden');
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    function doDelete(id){
+      const book = findBookById(id); if(!book) return;
+      if(!confirm('Borrar este libro permanentemente?')) return;
+      data.books = data.books.filter(b => b.id !== book.id);
+      saveData();
+    }
+
+    // export / import
+    exportBtn.addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `biblioteca_export_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    importFile.addEventListener('change', (e) =>{
+      const file = e.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const imported = JSON.parse(reader.result);
+          if(!imported || typeof imported !== 'object') throw new Error('Archivo inválido');
+          if(!confirm('Importar reemplazará los datos actuales. Continuar?')) return;
+          data = imported;
+          // ensure structure
+          if(typeof data.nextId !== 'number') data.nextId = (data.books && data.books.length) ? Math.max(...data.books.map(b=>b.id))+1 : 1;
+          if(!Array.isArray(data.categories)) data.categories = [];
+          if(!Array.isArray(data.books)) data.books = [];
+          saveData();
+          importFile.value = '';
+        }catch(err){ alert('Error leyendo archivo: ' + err.message); }
+      };
+      reader.readAsText(file);
+    });
+
+    // clear all
+    clearBtn.addEventListener('click', ()=>{
+      if(!confirm('Esto borrará TODO (libros y categorías). Deseas continuar?')) return;
+      data = defaultData(); saveData();
+    });
+
+    // seed example
+    seedBtn.addEventListener('click', ()=>{
+      const examples = [
+        { title: 'Cien años de soledad', author: 'Gabriel García Márquez', category: 'Ficción' },
+        { title: 'El Principito', author: 'Antoine de Saint-Exupéry', category: 'Infantil' },
+        { title: 'Matemáticas básicas', author: 'A. Autor', category: 'Matemáticas' }
+      ];
+      examples.forEach(ex => { data.books.push({ id: data.nextId++, title: ex.title, author: ex.author, category: ex.category, isbn: '', status: 'available', borrower:null }); if(!data.categories.includes(ex.category)) data.categories.push(ex.category); });
+      saveData();
+    });
+
+    // search / filter
+    searchInput.addEventListener('input', ()=>{ renderBooks(); });
+    filterCategory.addEventListener('change', ()=>{ renderBooks(); });
+    clearFilterBtn.addEventListener('click', ()=>{ searchInput.value=''; filterCategory.value=''; renderBooks(); });
+
+    // initial render
+    renderAll();
+
+    // small safety: close modal on ESC
+    window.addEventListener('keydown', e => { if(e.key === 'Escape') borrowModal.style.display = 'none'; });
+  </script>
+</body>
+</html>
